@@ -49,17 +49,17 @@ def synthetic_returns(sectors: int = 3, per_sector: int = 26, loners: int = 6, d
 
 
 def layout(graph: nx.Graph, components: list[set]) -> dict:
-    """Spring layout per component, components side by side, largest first."""
-    positions, x = {}, 0.0
-    for component in components:
+    """Each component in its own equal-width slot, scaled to fit and centred, largest first."""
+    positions = {}
+    for slot, component in enumerate(components):
         sub = graph.subgraph(component)
         pos = nx.kamada_kawai_layout(sub) if len(sub) > 2 else nx.spring_layout(sub, seed=3)
         coords = np.array(list(pos.values()))
-        span = np.ptp(coords, axis=0)
-        scale = 1.0 / max(span.max(), 1e-9)
-        for node, (px, py) in pos.items():
-            positions[node] = (x + (px - coords[:, 0].min()) * scale, (py - coords[:, 1].mean()) * scale)
-        x += span[0] * scale + 0.6
+        centre = (coords.max(axis=0) + coords.min(axis=0)) / 2
+        scale = 1.0 / max(np.ptp(coords, axis=0).max(), 1e-9)
+        for node, xy in pos.items():
+            x, y = (np.asarray(xy) - centre) * scale
+            positions[node] = (slot * 1.4 + x, y)
     return positions
 
 
@@ -82,36 +82,31 @@ def draw(theme: str, returns: pd.DataFrame, out: Path) -> None:
     clustered = {s for members in nodes.values() for s in members}
     outliers = [c for c in returns.columns if c not in clustered]
 
-    fig, ax = plt.subplots(figsize=(12, 5.6), dpi=200)
+    fig, ax = plt.subplots(figsize=(9, 4.4), dpi=220)
     fig.patch.set_facecolor(t["surface"])
     ax.set_facecolor(t["surface"])
     ax.axis("off")
 
-    nx.draw_networkx_edges(graph, positions, ax=ax, edge_color=t["muted"], width=1.5)
+    nx.draw_networkx_edges(graph, positions, ax=ax, edge_color=t["muted"], width=2)
+    label_y = max(y for _, y in positions.values()) + 0.12
     for index, component in enumerate(components):
         colour = t["series"][index] if index < len(t["series"]) else t["other"]
         members = sorted({s for node in component for s in nodes[node]})
-        sizes = [60 + 22 * len(nodes[node]) for node in component]
+        sizes = [90 + 34 * len(nodes[node]) for node in component]
         nx.draw_networkx_nodes(graph, positions, nodelist=list(component), ax=ax, node_color=colour,
                                node_size=sizes, edgecolors=t["surface"], linewidths=2)
         xs = [positions[n][0] for n in component]
         ys = [positions[n][1] for n in component]
         label = f"Cluster {index + 1} · {len(members)} stocks" if index < 3 else f"{len(members)} stocks"
-        ax.text(np.mean(xs), max(ys) + 0.14, label, ha="center", va="bottom",
-                color=t["primary"], fontsize=11, fontweight="semibold")
+        ax.text(np.mean(xs), label_y, label, ha="center", va="bottom",
+                color=t["primary"], fontsize=13, fontweight="semibold")
 
-    fig.text(0.04, 0.93, "The Mapper graph behind the portfolio clusters", color=t["primary"],
-             fontsize=15, fontweight="bold", ha="left")
-    fig.text(0.04, 0.875,
-             "Each node is a group of stocks that move together; linked nodes share stocks. "
-             "Each connected component becomes one cluster.",
-             color=t["secondary"], fontsize=10.5, ha="left")
-    fig.text(0.04, 0.05,
-             f"Synthetic data: {len(returns.columns)} stocks, 3 sector factors with stock-specific betas plus noise. "
-             + outlier_note(outliers),
-             color=t["secondary"], fontsize=9.5, ha="left")
-    ax.margins(x=0.04, y=0.18)
-    fig.subplots_adjust(left=0.03, right=0.97, top=0.82, bottom=0.11)
+    fig.text(0.03, 0.92, "Mapper graph: each connected component is one portfolio cluster",
+             color=t["primary"], fontsize=15, fontweight="bold", ha="left")
+    fig.text(0.03, 0.845, f"Nodes: stocks that move together. {len(outliers)} noise stocks are left out. Synthetic data.",
+             color=t["secondary"], fontsize=11.5, ha="left")
+    ax.margins(x=0.08, y=0.12)
+    fig.subplots_adjust(left=0.02, right=0.98, top=0.78, bottom=0.03)
     out.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out, facecolor=t["surface"])
     plt.close(fig)

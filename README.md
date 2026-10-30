@@ -11,7 +11,7 @@ The strategy is built on LEAN's Algorithm Framework. The logic is unit-tested, a
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/mapper-graph-dark.png">
-  <img alt="Mapper graph of 84 synthetic stocks: three chains of linked nodes, one per sector, each becoming a portfolio cluster; six stocks with no sector factor are left out as noise" src="docs/mapper-graph-light.png">
+  <img alt="Mapper graph of 84 synthetic stocks: three chains of linked nodes, one per sector, each becoming a portfolio cluster; six noise stocks are left out" src="docs/mapper-graph-light.png">
 </picture>
 
 ## Why
@@ -50,6 +50,8 @@ All thresholds are parameters (see [`config.json`](TopologicalAlpha/config.json)
 ## Results
 
 QuantConnect cloud backtest, 2015-01-01 to 2025-09-30, $1,000,000, daily data, Interactive Brokers fees and 5 bps slippage. [Public backtest report](https://www.quantconnect.cloud/backtest/55a96f5a00e62b19d8770c6bde1fa15c/?theme=chrome).
+
+[![Strategy equity 2015-2025 and summary statistics from the QuantConnect backtest report](docs/backtest-equity.png)](https://www.quantconnect.cloud/backtest/55a96f5a00e62b19d8770c6bde1fa15c/?theme=chrome)
 
 | Metric | Value |
 | --- | --- |
