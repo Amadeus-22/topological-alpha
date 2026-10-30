@@ -49,28 +49,27 @@ All thresholds are parameters (see [`config.json`](TopologicalAlpha/config.json)
 
 ## Results
 
-QuantConnect cloud backtest, 2015-01-01 to 2025-09-30, $1,000,000, daily data.
+QuantConnect cloud backtest, 2015-01-01 to 2025-09-30, $1,000,000, daily data, Interactive Brokers fees and 5 bps slippage. [Public backtest report](https://www.quantconnect.cloud/backtest/55a96f5a00e62b19d8770c6bde1fa15c/?theme=chrome).
 
-| Metric | Initial version |
+| Metric | Value |
 | --- | --- |
-| CAGR | 9.17% |
-| Sharpe ratio | 0.44 |
-| Max drawdown | 18.2% |
-| Annual volatility | 10.1% |
-| Beta / alpha | 0.51 / 0.004 |
-| Information ratio | -0.35 |
-| Orders / fees | 16,593 / $29,649 |
+| CAGR | 9.35% |
+| Sharpe ratio | 0.40 |
+| Sortino ratio | 0.50 |
+| Max drawdown | 21% |
+| Information ratio | -0.30 |
+| Win rate | 55% |
+| Portfolio turnover | 4.6% |
+| Total orders | 13,747 |
 
-**What this shows.** Compared with SPY, the initial version carried about half the market risk:
-- half the beta;
-- lower volatility;
-- a much smaller drawdown than SPY's 2020 fall.
+**Reading.** The strategy compounds steadily with a smaller drawdown than SPY's 2020 fall, but it does not beat SPY on a risk-adjusted basis (information ratio -0.30). The risk overlay spends long stretches below full exposure, which caps drawdowns and also costs return in strong markets.
 
-It did not produce meaningful alpha, and it traded too much.
+**Iterations so far.**
+- **Turnover.** The first cloud run placed 16,593 orders. Weekly, stepped regime scaling and a minimum trade size brought that to 13,747.
+- **Execution bug.** A bug skipped small trims while buys went through. It is now fixed: small orders are skipped only when they add exposure.
+- **Gross exposure.** The exposure chart still shows the long ratio occasionally drifting above 1.0. A daily gross-exposure cap in the risk model is the next change.
 
-**What changed since.** The risk model was the main source of turnover. It now steps exposure weekly instead of resizing the book on daily volatility moves, and the minimum trade size went from 0.25% to 0.5% of equity. On the local smoke test, orders fell by a third.
-
-**Next update.** The current version will be compared like for like against SPY buy-and-hold and the original QuantConnect strategy: same period, cash and costs. All three algorithms are in this repository.
+**Next update.** A like-for-like comparison against SPY buy-and-hold and the original QuantConnect strategy, with the same period, cash and costs. All three algorithms are in this repository.
 
 ## Engineering
 
