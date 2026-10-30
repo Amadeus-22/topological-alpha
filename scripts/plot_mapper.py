@@ -96,14 +96,15 @@ def draw(theme: str, returns: pd.DataFrame, out: Path) -> None:
         nx.draw_networkx_nodes(graph, positions, nodelist=list(component), ax=ax, node_color=colour,
                                node_size=sizes, edgecolors=t["surface"], linewidths=2)
         xs = [positions[n][0] for n in component]
-        ys = [positions[n][1] for n in component]
         label = f"Cluster {index + 1} · {len(members)} stocks" if index < 3 else f"{len(members)} stocks"
         ax.text(np.mean(xs), label_y, label, ha="center", va="bottom",
                 color=t["primary"], fontsize=13, fontweight="semibold")
 
     fig.text(0.03, 0.92, "Mapper graph: each connected component is one portfolio cluster",
              color=t["primary"], fontsize=15, fontweight="bold", ha="left")
-    fig.text(0.03, 0.845, f"Nodes: stocks that move together. {len(outliers)} noise stocks are left out. Synthetic data.",
+    fig.text(0.03, 0.845,
+             f"Nodes: stocks that move together. {len(outliers)} noise stocks are left out. "
+             "Synthetic data.",
              color=t["secondary"], fontsize=11.5, ha="left")
     ax.margins(x=0.08, y=0.12)
     fig.subplots_adjust(left=0.02, right=0.98, top=0.78, bottom=0.03)
