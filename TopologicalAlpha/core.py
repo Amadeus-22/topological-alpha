@@ -214,3 +214,16 @@ def regime_scale(prices: np.ndarray, target_vol: float, trend_window: int = 200,
 def quantize(scale: float, step: float) -> float:
     """Rounds ``scale`` to the nearest multiple of ``step``, never below one step or above 1."""
     return min(1.0, max(step, round(scale / step) * step))
+
+
+def skip_small_trade(order_quantity: float, holding_quantity: float, target_quantity: float,
+                     price: float, threshold_value: float) -> bool:
+    """True when an order is too small to be worth its costs and only adds exposure.
+
+    Orders that reduce or close a position are never skipped: skipping them while the
+    buys of a rebalance go through would leave the book above its target exposure.
+    """
+    if target_quantity == 0:
+        return False
+    adds_exposure = abs(holding_quantity + order_quantity) > abs(holding_quantity)
+    return adds_exposure and abs(order_quantity * price) < threshold_value

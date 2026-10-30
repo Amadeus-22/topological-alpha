@@ -91,3 +91,15 @@ def test_quantize_moves_in_steps_between_one_step_and_one():
     assert core.quantize(0.63, 0.25) == 0.75
     assert core.quantize(0.05, 0.25) == 0.25
     assert core.quantize(1.4, 0.25) == 1.0
+
+
+def test_skip_small_trade_skips_small_buys_but_never_reductions():
+    threshold = 5_000.0
+    # small top-up of an existing long: skipped
+    assert core.skip_small_trade(10, 100, 110, 100.0, threshold)
+    # small reduction of an existing long: always executed
+    assert not core.skip_small_trade(-10, 100, 90, 100.0, threshold)
+    # closing a position: always executed
+    assert not core.skip_small_trade(-100, 100, 0, 100.0, threshold)
+    # large buy: executed
+    assert not core.skip_small_trade(100, 0, 100, 100.0, threshold)
