@@ -1,4 +1,4 @@
-"""Pure functions behind the strategy: no LEAN imports, so they run under pytest.
+"""Pure functions behind the strategy: they use no LEAN API, so they run under pytest.
 
 Inputs are pandas objects indexed by symbol (any hashable), outputs are plain
 Python lists and dicts. The LEAN models only fetch data and call these.
