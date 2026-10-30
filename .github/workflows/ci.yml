@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      backtest:
+        description: Run a QuantConnect cloud backtest of this commit
+        type: boolean
+        default: false
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[dev,mapper]"
+      - run: ruff check .
+      - run: pytest -q
+
+  cloud-backtest:
+    # needs QC_USER_ID, QC_API_TOKEN and QC_ORGANIZATION as repository secrets
+    if: github.event_name == 'workflow_dispatch' && inputs.backtest
+    needs: test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install lean
+      - name: Push and backtest
+        env:
+          QC_USER_ID: ${{ secrets.QC_USER_ID }}
+          QC_API_TOKEN: ${{ secrets.QC_API_TOKEN }}
+          QC_ORGANIZATION: ${{ secrets.QC_ORGANIZATION }}
+        run: |
+          lean login --user-id "$QC_USER_ID" --api-token "$QC_API_TOKEN"
+          mkdir workspace && cd workspace
+          lean init --organization "$QC_ORGANIZATION" --language python
+          cp -r ../TopologicalAlpha .
+          lean cloud backtest TopologicalAlpha --push --name "ci-${GITHUB_SHA::7}" | tee ../backtest.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backtest-${{ github.sha }}
+          path: backtest.txt

@@ -1,0 +1,22 @@
+[project]
+name = "topological-alpha"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = ["numpy", "pandas", "scipy", "scikit-learn"]
+
+[project.optional-dependencies]
+mapper = ["kmapper", "umap-learn"]
+dev = ["pytest", "ruff", "lean"]
+
+[tool.pytest.ini_options]
+pythonpath = ["TopologicalAlpha"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B"]
+# AlgorithmImports is a star import by design in LEAN
+ignore = ["F403", "F405"]

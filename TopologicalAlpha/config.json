@@ -1,0 +1,25 @@
+{
+    "algorithm-language": "Python",
+    "parameters": {
+        "start": "2015-01-01",
+        "end": "2025-09-30",
+        "universe_size": "200",
+        "min_price": "10",
+        "min_dollar_volume": "25000000",
+        "min_market_cap": "10000000000",
+        "history_lookback": "150",
+        "min_universe": "20",
+        "symbols": "",
+        "select_fraction": "0.25",
+        "min_clusters": "3",
+        "fallback_clusters": "10",
+        "n_cubes": "10",
+        "overlap": "0.1",
+        "max_weight": "0.05",
+        "target_vol": "0.15",
+        "bear_scale": "0.5",
+        "min_trade": "0.0025",
+        "slippage": "0.0005"
+    },
+    "description": "SPY constituents clustered by the Mapper graph, momentum leaders per cluster"
+}
