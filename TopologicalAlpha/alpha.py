@@ -2,6 +2,8 @@
 from AlgorithmImports import *
 from datetime import timedelta
 from importlib.util import find_spec
+from typing import Any
+import pandas as pd
 import core
 # endregion
 
@@ -69,7 +71,7 @@ class TopologicalMomentumAlpha(AlphaModel):
         self._held = set(selected)
         return insights
 
-    def _clusters(self, algorithm: QCAlgorithm, returns) -> tuple[list[list], str]:
+    def _clusters(self, algorithm: QCAlgorithm, returns: pd.DataFrame) -> tuple[list[list[Any]], str]:
         if self._mapper_available and returns.shape[1] >= MIN_MAPPER_SYMBOLS:
             clusters = core.mapper_clusters(returns, n_cubes=self._n_cubes, overlap=self._overlap)
             if sum(len(c) >= 2 for c in clusters) >= self._min_clusters:

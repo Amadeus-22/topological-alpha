@@ -22,7 +22,7 @@ jobs:
       - run: ruff check .
       - run: pytest -q
       - name: Single-file build type-checks against the LEAN stubs
-        run: python scripts/bundle.py && mypy --ignore-missing-imports dist/main.py
+        run: python scripts/bundle.py && mypy --ignore-missing-imports --disallow-untyped-defs --disallow-any-generics --warn-return-any --disallow-untyped-calls --disallow-incomplete-defs dist/main.py
       - uses: actions/upload-artifact@v4
         with:
           name: main-py

@@ -1,5 +1,6 @@
 # region imports
 from AlgorithmImports import *
+import numpy as np
 from alpha import ClusterState, TopologicalMomentumAlpha
 from execution import MinimumTradeExecutionModel
 from portfolio import ClusterRiskPortfolioConstructionModel

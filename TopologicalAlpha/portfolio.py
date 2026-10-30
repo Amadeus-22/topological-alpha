@@ -20,7 +20,7 @@ class ClusterRiskPortfolioConstructionModel(PortfolioConstructionModel):
         self._vol_window = vol_window
         self._algorithm: QCAlgorithm | None = None
 
-    def determine_target_percent(self, active_insights: list[Insight]):
+    def determine_target_percent(self, active_insights: list[Insight]) -> Any:  # dict[Insight, float]
         long = [i for i in active_insights if i.direction == InsightDirection.UP]
         targets = {insight: 0.0 for insight in active_insights}
         if not long or self._algorithm is None:

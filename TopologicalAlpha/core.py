@@ -6,22 +6,30 @@ Python lists and dicts. The LEAN models only fetch data and call these.
 # region imports
 from __future__ import annotations
 
+from AlgorithmImports import *
 import math
+from collections.abc import Hashable
+from typing import Any, TypeVar, cast
 
 import numpy as np
 import pandas as pd
 # endregion
+
+# symbols are LEAN Symbols in the algorithm and plain strings in the tests
+K = TypeVar("K", bound=Hashable)
+# clusters built from DataFrame columns carry whatever the columns hold
+Cluster = list[Any]
 
 TRADING_DAYS = 252
 
 
 def log_returns(prices: pd.DataFrame) -> pd.DataFrame:
     """Daily log returns of a (days x symbols) price frame, rows with gaps dropped."""
-    return np.log(prices / prices.shift(1)).iloc[1:].dropna(axis=1, how="any")
+    return cast(pd.DataFrame, np.log(prices / prices.shift(1)).iloc[1:].dropna(axis=1, how="any"))
 
 
 def mapper_clusters(returns: pd.DataFrame, n_cubes: int = 10, overlap: float = 0.1,
-                    eps: float = 0.5, min_samples: int = 5, seed: int = 1) -> list[list]:
+                    eps: float = 0.5, min_samples: int = 5, seed: int = 1) -> list[Cluster]:
     """Connected components of the Mapper graph of the symbols' return paths.
 
     Same construction as QuantConnect's "Portfolio Construction Using Topological
@@ -52,7 +60,7 @@ def mapper_clusters(returns: pd.DataFrame, n_cubes: int = 10, overlap: float = 0
     return connected_components(nodes, graph["links"])
 
 
-def connected_components(nodes: dict[str, list], links: dict[str, list[str]]) -> list[list]:
+def connected_components(nodes: dict[str, Cluster], links: dict[str, list[str]]) -> list[Cluster]:
     """Groups the members of linked nodes, largest component first.
 
     :param nodes: node id -> member symbols
@@ -60,7 +68,7 @@ def connected_components(nodes: dict[str, list], links: dict[str, list[str]]) ->
     """
     parent = {node: node for node in nodes}
 
-    def find(node):
+    def find(node: str) -> str:
         while parent[node] != node:
             parent[node] = parent[parent[node]]
             node = parent[node]
@@ -71,13 +79,13 @@ def connected_components(nodes: dict[str, list], links: dict[str, list[str]]) ->
             if node in parent and other in parent:
                 parent[find(node)] = find(other)
 
-    groups: dict[str, set] = {}
+    groups: dict[str, set[Any]] = {}
     for node, members in nodes.items():
         groups.setdefault(find(node), set()).update(members)
     return sorted((sorted(group, key=str) for group in groups.values()), key=lambda g: (-len(g), str(g[0])))
 
 
-def correlation_clusters(returns: pd.DataFrame, n_clusters: int) -> list[list]:
+def correlation_clusters(returns: pd.DataFrame, n_clusters: int) -> list[Cluster]:
     """Fallback: average-linkage clusters on correlation distance, largest first."""
     from scipy.cluster.hierarchy import fcluster, linkage
     from scipy.spatial.distance import squareform
@@ -87,7 +95,7 @@ def correlation_clusters(returns: pd.DataFrame, n_clusters: int) -> list[list]:
     np.fill_diagonal(distance, 0.0)
     labels = fcluster(linkage(squareform(distance, checks=False), method="average"),
                       t=min(n_clusters, len(returns.columns)), criterion="maxclust")
-    groups: dict[int, list] = {}
+    groups: dict[int, Cluster] = {}
     for symbol, label in zip(returns.columns, labels, strict=True):
         groups.setdefault(label, []).append(symbol)
     return sorted(groups.values(), key=lambda g: (-len(g), str(g[0])))
@@ -108,15 +116,15 @@ def momentum_scores(prices: pd.DataFrame, lookback: int = 252, skip: int = 21,
     return (momentum / volatility.replace(0.0, np.nan)).dropna()
 
 
-def select_in_clusters(clusters: list[list], scores: pd.Series, fraction: float,
-                       min_cluster_size: int = 2) -> dict:
+def select_in_clusters(clusters: list[list[K]], scores: pd.Series, fraction: float,
+                       min_cluster_size: int = 2) -> dict[K, int]:
     """Best-scoring symbols of each cluster: symbol -> cluster index.
 
     Keeps the top ``fraction`` of each cluster (at least one name), only names with
     a positive score, so a cluster in a downtrend gets nothing and its budget stays
     in cash. Clusters smaller than ``min_cluster_size`` are treated as outliers.
     """
-    selected = {}
+    selected: dict[K, int] = {}
     for index, cluster in enumerate(clusters):
         if len(cluster) < min_cluster_size:
             continue
@@ -128,8 +136,8 @@ def select_in_clusters(clusters: list[list], scores: pd.Series, fraction: float,
     return selected
 
 
-def cluster_risk_weights(selected: dict, cluster_sizes: dict[int, int], volatility: pd.Series,
-                         max_weight: float, gross: float = 1.0) -> dict:
+def cluster_risk_weights(selected: dict[K, int], cluster_sizes: dict[int, int], volatility: pd.Series,
+                         max_weight: float, gross: float = 1.0) -> dict[K, float]:
     """Target weights: cluster budgets grow with sqrt(cluster size), inverse volatility inside.
 
     sqrt keeps a giant component from taking the whole book while still giving it
@@ -140,7 +148,7 @@ def cluster_risk_weights(selected: dict, cluster_sizes: dict[int, int], volatili
     :param cluster_sizes: cluster index -> number of symbols in the full cluster
     :param volatility: symbol -> annualised volatility
     """
-    by_cluster: dict[int, list] = {}
+    by_cluster: dict[int, list[K]] = {}
     for symbol, cluster in selected.items():
         if symbol in volatility.index and volatility[symbol] > 0:
             by_cluster.setdefault(cluster, []).append(symbol)
@@ -149,7 +157,7 @@ def cluster_risk_weights(selected: dict, cluster_sizes: dict[int, int], volatili
 
     budgets = {c: math.sqrt(cluster_sizes.get(c, len(s))) for c, s in by_cluster.items()}
     total_budget = sum(budgets.values())
-    weights = {}
+    weights: dict[K, float] = {}
     for cluster, symbols in by_cluster.items():
         inverse = 1.0 / volatility[symbols]
         for symbol, w in (inverse / inverse.sum()).items():
@@ -157,10 +165,10 @@ def cluster_risk_weights(selected: dict, cluster_sizes: dict[int, int], volatili
     return cap_weights(weights, max_weight)
 
 
-def cap_weights(weights: dict, max_weight: float) -> dict:
+def cap_weights(weights: dict[K, float], max_weight: float) -> dict[K, float]:
     """Caps each weight at ``max_weight``, handing the excess to uncapped names pro rata."""
     weights = dict(weights)
-    capped: set = set()
+    capped: set[K] = set()
     for _ in range(len(weights)):
         excess = sum(w - max_weight for w in weights.values() if w > max_weight)
         if excess <= 1e-12:

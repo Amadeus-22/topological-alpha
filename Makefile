@@ -17,7 +17,7 @@ lint:
 # one main.py to paste into a QuantConnect project
 bundle:
 	$(PY) scripts/bundle.py
-	$(VENV)/bin/mypy --ignore-missing-imports dist/main.py
+	$(VENV)/bin/mypy --ignore-missing-imports --disallow-untyped-defs --disallow-any-generics --warn-return-any --disallow-untyped-calls --disallow-incomplete-defs dist/main.py
 
 # The lean commands run from a lean workspace (lean init) that contains this project folder.
 push:
