@@ -21,6 +21,12 @@ jobs:
       - run: pip install -e ".[dev,mapper]"
       - run: ruff check .
       - run: pytest -q
+      - name: Single-file build compiles
+        run: python scripts/bundle.py && python -m py_compile dist/main.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: main-py
+          path: dist/main.py
 
   cloud-backtest:
     # needs QC_USER_ID, QC_API_TOKEN and QC_ORGANIZATION as repository secrets

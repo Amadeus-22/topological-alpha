@@ -2,7 +2,7 @@ PROJECT := TopologicalAlpha
 VENV    ?= .venv
 PY      := $(VENV)/bin/python
 
-.PHONY: setup test lint push backtest optimize
+.PHONY: setup test lint bundle push backtest optimize
 
 setup:
 	python3 -m venv $(VENV)
@@ -13,6 +13,11 @@ test:
 
 lint:
 	$(VENV)/bin/ruff check .
+
+# one main.py to paste into a QuantConnect project
+bundle:
+	$(PY) scripts/bundle.py
+	$(PY) -m py_compile dist/main.py
 
 # The lean commands run from a lean workspace (lean init) that contains this project folder.
 push:
