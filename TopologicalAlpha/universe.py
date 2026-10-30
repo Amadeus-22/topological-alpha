@@ -27,7 +27,7 @@ class SpyConstituentsUniverse:
         self._members = {c.symbol for c in constituents if c.weight}
         return []
 
-    def _select(self, fundamentals: list[Fundamental]) -> list[Symbol]:
+    def _select(self, fundamentals: list[Fundamental]):
         if not self._members or fundamentals[0].end_time.month == self._month:
             return Universe.UNCHANGED
         self._month = fundamentals[0].end_time.month

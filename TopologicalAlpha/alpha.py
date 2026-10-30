@@ -1,7 +1,12 @@
 # region imports
 from AlgorithmImports import *
+from datetime import timedelta
+from importlib.util import find_spec
 import core
 # endregion
+
+# Mapper's cover and DBSCAN need enough points per interval; below this, cluster by correlation
+MIN_MAPPER_SYMBOLS = 20
 
 
 class ClusterState:
@@ -17,8 +22,8 @@ class TopologicalMomentumAlpha(AlphaModel):
     """Clusters the universe with the Mapper graph, then picks momentum leaders per cluster.
 
     Once a month: Mapper on ``lookback`` days of log returns gives the clusters
-    (correlation clusters if Mapper finds fewer than ``min_clusters`` or its
-    libraries are missing); inside each cluster the names with the best positive
+    (correlation clusters if Mapper finds fewer than ``min_clusters``, the
+    universe is under 20 names or its libraries are missing); inside each cluster the names with the best positive
     12-1 risk-adjusted momentum get an Up insight. Names dropped since the last
     recalibration get a Flat insight so they are closed at the same rebalance.
     """
@@ -36,6 +41,7 @@ class TopologicalMomentumAlpha(AlphaModel):
         self._symbols: set[Symbol] = set()
         self._held: set[Symbol] = set()
         self._month = -1
+        self._mapper_available = all(find_spec(m) for m in ("kmapper", "umap", "sklearn"))
 
     def update(self, algorithm: QCAlgorithm, data: Slice) -> list[Insight]:
         if algorithm.time.month == self._month or len(self._symbols) < self._min_universe:
@@ -64,12 +70,10 @@ class TopologicalMomentumAlpha(AlphaModel):
         return insights
 
     def _clusters(self, algorithm: QCAlgorithm, returns) -> tuple[list[list], str]:
-        try:
+        if self._mapper_available and returns.shape[1] >= MIN_MAPPER_SYMBOLS:
             clusters = core.mapper_clusters(returns, n_cubes=self._n_cubes, overlap=self._overlap)
             if sum(len(c) >= 2 for c in clusters) >= self._min_clusters:
                 return clusters, "mapper"
-        except Exception as error:
-            algorithm.debug(f"Mapper failed, using correlation clusters: {error}")
         return core.correlation_clusters(returns, self._fallback_clusters), "correlation"
 
     def on_securities_changed(self, algorithm: QCAlgorithm, changes: SecurityChanges) -> None:

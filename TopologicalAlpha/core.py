@@ -195,3 +195,8 @@ def regime_scale(prices: np.ndarray, target_vol: float, trend_window: int = 200,
     if prices[-1] < prices[-trend_window:].mean():
         scale *= bear_scale
     return scale
+
+
+def quantize(scale: float, step: float) -> float:
+    """Rounds ``scale`` to the nearest multiple of ``step``, never below one step or above 1."""
+    return min(1.0, max(step, round(scale / step) * step))

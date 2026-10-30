@@ -18,7 +18,9 @@
         "max_weight": "0.05",
         "target_vol": "0.15",
         "bear_scale": "0.5",
-        "min_trade": "0.0025",
+        "vol_window": "63",
+        "risk_step": "0.25",
+        "min_trade": "0.005",
         "slippage": "0.0005"
     },
     "description": "SPY constituents clustered by the Mapper graph, momentum leaders per cluster"

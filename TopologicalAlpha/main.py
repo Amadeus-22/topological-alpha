@@ -76,8 +76,9 @@ class TopologicalAlphaAlgorithm(QCAlgorithm):
         self.set_portfolio_construction(ClusterRiskPortfolioConstructionModel(
             state, max_weight=self._float("max_weight", 0.05)))
         self.add_risk_management(RegimeRiskManagementModel(
-            spy, target_vol=self._float("target_vol", 0.15), bear_scale=self._float("bear_scale", 0.5)))
-        self.set_execution(MinimumTradeExecutionModel(self._float("min_trade", 0.0025)))
+            spy, target_vol=self._float("target_vol", 0.15), bear_scale=self._float("bear_scale", 0.5),
+            vol_window=self._int("vol_window", 63), step=self._float("risk_step", 0.25)))
+        self.set_execution(MinimumTradeExecutionModel(self._float("min_trade", 0.005)))
 
     def _int(self, name: str, default: int) -> int:
         return int(self.get_parameter(name, str(default)))

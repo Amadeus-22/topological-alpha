@@ -6,7 +6,7 @@ dependencies = ["numpy", "pandas", "scipy", "scikit-learn"]
 
 [project.optional-dependencies]
 mapper = ["kmapper", "umap-learn"]
-dev = ["pytest", "ruff", "lean"]
+dev = ["pytest", "ruff", "mypy", "lean"]
 
 [tool.pytest.ini_options]
 pythonpath = ["TopologicalAlpha"]

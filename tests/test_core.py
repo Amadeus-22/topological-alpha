@@ -84,3 +84,10 @@ def test_mapper_clusters_returns_disjoint_groups():
     members = [name for c in clusters for name in c]
     assert len(members) == len(set(members))
     assert set(members) <= set(returns.columns)
+
+
+def test_quantize_moves_in_steps_between_one_step_and_one():
+    assert core.quantize(0.62, 0.25) == 0.5
+    assert core.quantize(0.63, 0.25) == 0.75
+    assert core.quantize(0.05, 0.25) == 0.25
+    assert core.quantize(1.4, 0.25) == 1.0

@@ -14,7 +14,7 @@ class MinimumTradeExecutionModel(ExecutionModel):
         self._min_trade = min_trade
         self._targets = PortfolioTargetCollection()
 
-    def execute(self, algorithm: QCAlgorithm, targets: list[PortfolioTarget]) -> None:
+    def execute(self, algorithm: QCAlgorithm, targets: list[IPortfolioTarget]) -> None:
         self._targets.add_range(targets)
         if self._targets.is_empty:
             return
