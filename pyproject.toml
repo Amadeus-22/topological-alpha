@@ -11,6 +11,7 @@ dependencies = ["numpy", "pandas", "scipy", "scikit-learn"]
 [project.optional-dependencies]
 mapper = ["kmapper", "umap-learn"]
 dev = ["pytest", "ruff", "mypy", "lean"]
+docs = ["matplotlib", "networkx"]
 
 # nothing to package: the strategy is deployed as LEAN project files
 [tool.setuptools]

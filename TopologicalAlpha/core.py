@@ -28,19 +28,18 @@ def log_returns(prices: pd.DataFrame) -> pd.DataFrame:
     return cast(pd.DataFrame, np.log(prices / prices.shift(1)).iloc[1:].dropna(axis=1, how="any"))
 
 
-def mapper_clusters(returns: pd.DataFrame, n_cubes: int = 10, overlap: float = 0.1,
-                    eps: float = 0.5, min_samples: int = 5, seed: int = 1) -> list[Cluster]:
-    """Connected components of the Mapper graph of the symbols' return paths.
+def mapper_graph(returns: pd.DataFrame, n_cubes: int = 10, overlap: float = 0.1,
+                 eps: float = 0.5, min_samples: int = 5,
+                 seed: int = 1) -> tuple[dict[str, Cluster], dict[str, list[str]]]:
+    """Mapper graph of the symbols' return paths: (node id -> member symbols, node id -> linked nodes).
 
     Same construction as QuantConnect's "Portfolio Construction Using Topological
     Data Analysis": each symbol is a point whose coordinates are its daily log
     returns; the lens is PCA (80% of variance) followed by a 1-d UMAP; each cover
     interval is clustered with DBSCAN on correlation distance. Symbols DBSCAN
-    marks as noise belong to no node and are left out. Two nodes sharing a member
-    are linked, so a connected component is a set of symbols that move together.
+    marks as noise belong to no node. Two nodes sharing a member are linked.
 
     :param returns: (days x symbols) log returns
-    :return: components as lists of symbols, largest first
     """
     import kmapper as km
     from sklearn.cluster import DBSCAN
@@ -57,7 +56,14 @@ def mapper_clusters(returns: pd.DataFrame, n_cubes: int = 10, overlap: float = 0
                        clusterer=DBSCAN(eps=eps, min_samples=min_samples, metric="correlation"),
                        cover=km.Cover(n_cubes=n_cubes, perc_overlap=overlap))
     nodes = {node: [points.index[i] for i in members] for node, members in graph["nodes"].items()}
-    return connected_components(nodes, graph["links"])
+    return nodes, dict(graph["links"])
+
+
+def mapper_clusters(returns: pd.DataFrame, n_cubes: int = 10, overlap: float = 0.1,
+                    eps: float = 0.5, min_samples: int = 5, seed: int = 1) -> list[Cluster]:
+    """Connected components of the Mapper graph, largest first: sets of symbols that move together."""
+    nodes, links = mapper_graph(returns, n_cubes, overlap, eps, min_samples, seed)
+    return connected_components(nodes, links)
 
 
 def connected_components(nodes: dict[str, Cluster], links: dict[str, list[str]]) -> list[Cluster]:

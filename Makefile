@@ -2,11 +2,11 @@ PROJECT := TopologicalAlpha
 VENV    ?= .venv
 PY      := $(VENV)/bin/python
 
-.PHONY: setup test lint bundle push backtest optimize
+.PHONY: setup test lint bundle figures push backtest optimize
 
 setup:
 	python3 -m venv $(VENV)
-	$(PY) -m pip install -e ".[dev,mapper]"
+	$(PY) -m pip install -e ".[dev,mapper,docs]"
 
 test:
 	$(PY) -m pytest -q
@@ -18,6 +18,10 @@ lint:
 bundle:
 	$(PY) scripts/bundle.py
 	$(VENV)/bin/mypy --ignore-missing-imports --disallow-untyped-defs --disallow-any-generics --warn-return-any --disallow-untyped-calls --disallow-incomplete-defs dist/main.py
+
+# README figure, built with the same core.mapper_graph the strategy uses
+figures:
+	$(PY) scripts/plot_mapper.py
 
 # The lean commands run from a lean workspace (lean init) that contains this project folder.
 push:
