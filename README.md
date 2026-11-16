@@ -5,22 +5,13 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
 [![QuantConnect LEAN](https://img.shields.io/badge/QuantConnect-LEAN-orange.svg)](https://github.com/QuantConnect/Lean)
 
-**A systematic S&P 500 strategy for QuantConnect LEAN.** It groups stocks with the Mapper algorithm from topological data analysis and holds the momentum leaders of each group, with risk and cost controls on top.
+An S&P 500 long-only strategy for QuantConnect LEAN that clusters stocks with the Mapper algorithm (topological data analysis) and holds the momentum leaders of each cluster, so the portfolio follows strong names without concentrating in one group of correlated stocks.
 
-The strategy is built on LEAN's Algorithm Framework. The logic is unit-tested, and CI type-checks the project with the same rules the QuantConnect editor enforces.
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/mapper-graph-dark.png">
-  <img alt="Mapper graph of 84 synthetic stocks: three chains of linked nodes, one per sector, each becoming a portfolio cluster; six noise stocks are left out" src="docs/mapper-graph-light.png">
-</picture>
+**Status:** research code, backtested only. One cloud backtest is published (see [Results](#results)); it predates the latest execution fix, and the like-for-like comparison against the two baselines is pending.
 
 ## Why
 
-QuantConnect's research article [Portfolio Construction Using Topological Data Analysis](https://www.quantconnect.com/research/18987/portfolio-construction-using-topological-data-analysis/) uses Mapper to diversify across groups of stocks that move together, and it holds every clustered name.
-
-In a public port, that approach trailed SPY over 2021-2026, with CAGR of 10.8% vs 12.2% and Sharpe of 0.33 vs 0.40, and it traded about 17 times more. Diversification alone does not create return.
-
-This project keeps the same Mapper construction but treats the clusters as a **diversification constraint on a momentum selection**. Each cluster contributes its strongest names, so the portfolio holds leaders without concentrating in one corner of the market.
+QuantConnect's research article [Portfolio Construction Using Topological Data Analysis](https://www.quantconnect.com/research/18987/portfolio-construction-using-topological-data-analysis/) uses Mapper clusters to diversify and holds every clustered name. This project keeps the same Mapper construction but uses the clusters as a **diversification constraint on a momentum selection**: each cluster contributes only its strongest names.
 
 ## How it works
 
@@ -37,119 +28,106 @@ flowchart LR
     I --> D
 ```
 
-| Framework model | Rule |
+| LEAN framework model | Rule |
 | --- | --- |
-| **Universe** | SPY's point-in-time constituents with price above $10, daily dollar volume above $25M and market cap above $10B. The 200 most liquid, refreshed monthly. |
-| **Alpha** | Once a month, a Mapper graph on 150 days of log returns. The lens is PCA (80% of variance) followed by a 1-d UMAP. DBSCAN on correlation distance clusters each cover interval, and each connected component is a cluster. Names DBSCAN marks as noise are left out. Inside each cluster, the top 25% by 12-1 month momentum per unit of volatility get an Up insight, positive scores only. If Mapper yields fewer than 3 clusters, average-linkage correlation clusters are used instead. |
-| **Portfolio construction** | Each cluster's budget grows with the square root of its size, and weights are inverse volatility within the cluster, capped at 5% per name. The portfolio rebalances only when insights change. |
-| **Risk management** | Gross exposure follows a 15% volatility target on SPY (63-day realised volatility) and is halved when SPY is below its 200-day average. It is evaluated weekly, in steps of 0.25, so noise does not resize the book. |
-| **Execution** | Market orders, skipping adjustments smaller than 0.5% of equity, with the Interactive Brokers fee model and 5 bps slippage on every fill. |
+| **Universe** | SPY constituents with price > $10, daily dollar volume > $25M, market cap > $10B; the 200 most liquid, refreshed monthly. |
+| **Alpha** | Monthly Mapper graph on 150 days of log returns (lens: PCA to 80% variance, then 1-d UMAP; DBSCAN on correlation distance per cover interval). Each connected component is a cluster; DBSCAN noise is left out. In each cluster, the top 25% by 12-1 momentum per unit of volatility get an Up insight, positive scores only. Fewer than 3 Mapper clusters falls back to correlation clusters. |
+| **Portfolio construction** | Cluster budget proportional to the square root of cluster size; inverse-volatility weights inside the cluster; 5% cap per name. Rebalances only when insights change. |
+| **Risk management** | Gross exposure scaled to a 15% volatility target on SPY (63-day realised vol), halved when SPY is below its 200-day average. Recomputed weekly, in steps of 0.25. |
+| **Execution** | Market orders. Orders under 0.5% of equity are skipped when they add exposure; reductions and closes always go through. Interactive Brokers fee model plus 5 bps constant slippage. |
 
-All thresholds are parameters (see [`config.json`](TopologicalAlpha/config.json)) and can be changed from the QuantConnect parameters panel without touching code.
+Every threshold is a parameter in [`config.json`](TopologicalAlpha/config.json) and can be changed from the QuantConnect parameters panel.
 
-## Results
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/mapper-graph-dark.png">
+  <img alt="Mapper graph of 84 synthetic stocks: three chains of linked nodes, one per sector, each becoming a portfolio cluster; six noise stocks are left out" src="docs/mapper-graph-light.png">
+</picture>
 
-QuantConnect cloud backtest, 2015-01-01 to 2025-09-30, $1,000,000, daily data, Interactive Brokers fees and 5 bps slippage. [Public backtest report](https://www.quantconnect.cloud/backtest/55a96f5a00e62b19d8770c6bde1fa15c/?theme=chrome).
+*Mapper graph on synthetic data (3 sectors of 26 stocks plus 6 noise-only stocks), built by the same `core.mapper_graph` the strategy uses ([`scripts/plot_mapper.py`](scripts/plot_mapper.py)).*
 
-[![Strategy equity 2015-2025 and summary statistics from the QuantConnect backtest report](docs/backtest-equity.png)](https://www.quantconnect.cloud/backtest/55a96f5a00e62b19d8770c6bde1fa15c/?theme=chrome)
+## Design decisions
 
-| Metric | Value |
-| --- | --- |
-| CAGR | 9.35% |
-| Sharpe ratio | 0.40 |
-| Sortino ratio | 0.50 |
-| Max drawdown | 21% |
-| Information ratio | -0.30 |
-| Win rate | 55% |
-| Portfolio turnover | 4.6% |
-| Total orders | 13,747 |
-
-**Reading.** The strategy compounds steadily with a smaller drawdown than SPY's 2020 fall, but it does not beat SPY on a risk-adjusted basis (information ratio -0.30). The risk overlay spends long stretches below full exposure, which caps drawdowns and also costs return in strong markets.
-
-**Iterations so far.**
-- **Turnover.** The first cloud run placed 16,593 orders. Weekly, stepped regime scaling and a minimum trade size brought that to 13,747.
-- **Execution bug.** A bug skipped small trims while buys went through. It is now fixed: small orders are skipped only when they add exposure.
-- **Gross exposure.** The exposure chart still shows the long ratio occasionally drifting above 1.0. A daily gross-exposure cap in the risk model is the next change.
-
-**Next update.** A like-for-like comparison against SPY buy-and-hold and the original QuantConnect strategy, with the same period, cash and costs. All three algorithms are in this repository.
-
-## Engineering
-
-```mermaid
-flowchart LR
-    A[TopologicalAlpha/<br/>framework modules] --> B[core.py<br/>pure functions]
-    B --> C[pytest]
-    A --> D[scripts/bundle.py<br/>single main.py]
-    D --> E[mypy strict<br/>vs LEAN stubs]
-    C --> F{GitHub Actions}
-    E --> F
-    F --> G[artifact<br/>main.py]
-    G --> H[QuantConnect editor]
-    F -. manual run .-> I[lean-cli<br/>cloud backtest]
-```
-
-- **Testable core.** The framework models only fetch data and call [`core.py`](TopologicalAlpha/core.py). Mapper, clustering, scoring, sizing and the regime scale are pure functions covered by pytest, so they run without LEAN.
-- **No silent failures.** Library availability is checked once, and there are no blanket `try/except` blocks. A failing Mapper run surfaces instead of quietly changing the strategy.
-- **Turnover by design.** Rebalancing happens only on insight changes, the risk scale moves in discrete steps, and execution skips trades that change nothing material.
-- **Realistic costs.** Interactive Brokers fees and constant slippage on every fill, in the strategy and in both baselines.
-- **One source, two deliveries.** The modules are the source of truth. [`scripts/bundle.py`](scripts/bundle.py) builds a single `main.py` for the QuantConnect editor, and CI type-checks that build against `quantconnect-stubs` with the editor's strict rules.
+- **Pure, testable core.** The framework models only fetch data and call [`core.py`](TopologicalAlpha/core.py). Mapper, clustering, momentum scoring, weighting, the regime scale and the trade filter are pure functions tested with pytest, without LEAN.
+- **Fail loudly.** Library availability is checked once at start-up and there are no blanket `try/except` blocks, so a broken Mapper run surfaces instead of silently changing the strategy.
+- **Turnover by design.** Rebalance only on insight changes, risk scale in discrete weekly steps, skip trades that change nothing material.
+- **Costs in every run.** IBKR fees and constant slippage in the strategy and in both baselines.
+- **One source, two deliveries.** The modules are the source of truth; [`scripts/bundle.py`](scripts/bundle.py) builds a single `main.py` for the QuantConnect web editor, and CI type-checks that file with strict mypy flags against `quantconnect-stubs`.
 
 ## Project layout
 
 ```
-TopologicalAlpha/          LEAN project
-  main.py                  wires the five models, brokerage and costs
-  universe.py              universe selection
-  alpha.py                 Mapper clusters and momentum selection
-  portfolio.py             portfolio construction
-  risk.py                  risk management
-  execution.py             execution
-  core.py                  pure functions (tested)
-  config.json              parameters
+TopologicalAlpha/              LEAN project
+  main.py                      wires the five models, brokerage and costs
+  universe.py                  universe selection
+  alpha.py                     Mapper clusters and momentum selection
+  portfolio.py                 portfolio construction
+  risk.py                      risk management
+  execution.py                 execution
+  core.py                      pure functions (tested)
+  config.json                  parameters
 baselines/
-  spy_buy_and_hold.py      SPY buy and hold, same period, cash and costs
-  qc_topological_original.py  the original QuantConnect strategy, same run settings
+  spy_buy_and_hold.py          SPY buy and hold, same period, cash and costs
+  qc_topological_original.py   the original QuantConnect strategy, same run settings
 scripts/
-  bundle.py                single-file build for the QuantConnect editor
-  plot_mapper.py           the figure above
-tests/                     pytest for core.py
+  bundle.py                    single-file build for the QuantConnect editor
+  plot_mapper.py               the Mapper figure above
+tests/test_core.py             pytest for core.py
+.github/workflows/ci.yml       ruff, pytest, bundle + mypy; optional cloud backtest
 ```
 
-## Quick start
+## Run the tests locally
 
-**On QuantConnect.** Create a Python project and paste the single-file build into its `main.py`. You can download it from the latest CI run's `main-py` artifact, or build it with `make bundle`. Alternatively, create the seven files of `TopologicalAlpha/` with the same names.
-
-**With lean-cli.** From a `lean init` workspace that contains `TopologicalAlpha/`:
+Requires Python 3.11+ (CI uses 3.11).
 
 ```bash
-make backtest    # push and run a cloud backtest named after the commit
-make optimize    # cloud parameter optimisation
+make setup    # .venv with research, dev and figure dependencies
+make test     # pytest: 10 tests on core.py
+make lint     # ruff
+make bundle   # build dist/main.py and type-check it against the LEAN stubs
 ```
 
-**Locally.**
+## Backtest on QuantConnect
 
-```bash
-make setup       # virtualenv with the research and dev dependencies
-make test        # pytest
-make lint        # ruff
-make bundle      # build dist/main.py and type-check it against the LEAN stubs
-make figures     # regenerate docs/mapper-graph-{light,dark}.png
-```
+- **Web editor.** Create a Python project and paste the single-file build into `main.py`. Get it from the `main-py` artifact of the latest CI run, or build it with `make bundle`. Alternatively, copy the seven files of `TopologicalAlpha/` with the same names.
+- **lean-cli.** From a `lean init` workspace that contains `TopologicalAlpha/`:
+
+  ```bash
+  make backtest   # push and run a cloud backtest named after the commit
+  make optimize   # cloud parameter optimisation
+  ```
+
+- **CI.** Run the workflow manually with `backtest: true` to push the commit and run a cloud backtest (needs `QC_USER_ID`, `QC_API_TOKEN` and `QC_ORGANIZATION` repository secrets).
+
+The baselines in `baselines/` run the same way as separate QuantConnect projects.
+
+## Results
+
+One QuantConnect cloud backtest, 2015-01-01 to 2025-09-30, $1,000,000, daily data, IBKR fees and 5 bps slippage: [public report](https://www.quantconnect.cloud/backtest/55a96f5a00e62b19d8770c6bde1fa15c/?theme=chrome).
+
+[![Strategy equity 2015-2025 and summary statistics from the QuantConnect backtest report](docs/backtest-equity.png)](https://www.quantconnect.cloud/backtest/55a96f5a00e62b19d8770c6bde1fa15c/?theme=chrome)
+
+| CAGR | Sharpe | Sortino | Max drawdown | Information ratio | Turnover | Orders |
+| --- | --- | --- | --- | --- | --- | --- |
+| 9.35% | 0.40 | 0.50 | 21% | -0.30 | 4.6% | 13,747 |
+
+- The strategy does not beat SPY on a risk-adjusted basis (information ratio -0.30). The risk overlay keeps the book below full exposure for long stretches, which limits drawdowns and also costs return in strong markets.
+- This run predates commit `0c3e4af`, which fixed the execution model skipping small trims while buys went through; that bug let the long ratio drift above 1.0. The current code has not been re-backtested yet.
 
 ## Limitations and next steps
 
-- **Ablation.** Measure whether the Mapper clusters add value over plain correlation clusters, with the same selection, sizing and costs.
-- **Robustness.** Walk-forward and parameter-stability checks on `history_lookback`, `select_fraction` and `target_vol`.
-- **Costs.** The cost model is a fee schedule plus constant slippage, with no market-impact model.
-- **Live trading.** The algorithm switches to minute data in live mode and uses the Interactive Brokers brokerage model, but it has only been backtested.
+- Re-run the current code and compare it like for like with both baselines (same period, cash and costs).
+- Ablation: do Mapper clusters add value over plain correlation clusters with the same selection, sizing and costs?
+- Robustness: walk-forward and parameter-stability checks on `history_lookback`, `select_fraction` and `target_vol`.
+- Costs are a fee schedule plus constant slippage; there is no market-impact model.
+- Live mode switches to minute data and uses the IBKR brokerage model, but the strategy has only been backtested.
 
 ## Credits
 
-The Mapper construction (PCA + UMAP lens, DBSCAN on correlation distance) and the idea of building a portfolio from its connected components come from Louis Szeto's QuantConnect research article linked above. His original code is reproduced in [`baselines/`](baselines/qc_topological_original.py) for comparison.
+The Mapper construction (PCA + UMAP lens, DBSCAN on correlation distance) and the idea of building a portfolio from its connected components come from Louis Szeto's QuantConnect research article linked above. The original strategy is reproduced in [`baselines/qc_topological_original.py`](baselines/qc_topological_original.py) for comparison.
 
 ## Disclaimer
 
-This is research code. Backtest results are not indicative of future performance, and nothing here is investment advice.
+Research code. Backtest results do not indicate future performance, and nothing here is investment advice.
 
 ## License
 
