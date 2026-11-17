@@ -29,3 +29,14 @@ target-version = "py311"
 select = ["E", "F", "W", "B"]
 # AlgorithmImports is a star import by design in LEAN
 ignore = ["F403", "F405"]
+
+# Strict settings for the single-file build (dist/main.py), matching QC's editor warnings.
+# umap-learn ships py.typed since 0.6.0 but leaves UMAP() unannotated, so exempt its calls.
+[tool.mypy]
+ignore_missing_imports = true
+disallow_untyped_defs = true
+disallow_any_generics = true
+warn_return_any = true
+disallow_untyped_calls = true
+disallow_incomplete_defs = true
+untyped_calls_exclude = ["umap"]

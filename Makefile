@@ -17,7 +17,7 @@ lint:
 # one main.py to paste into a QuantConnect project
 bundle:
 	$(PY) scripts/bundle.py
-	$(VENV)/bin/mypy --ignore-missing-imports --disallow-untyped-defs --disallow-any-generics --warn-return-any --disallow-untyped-calls --disallow-incomplete-defs dist/main.py
+	$(VENV)/bin/mypy dist/main.py
 
 # README figure, built with the same core.mapper_graph the strategy uses
 figures:
