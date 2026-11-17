@@ -7,7 +7,7 @@
 
 An S&P 500 long-only strategy for QuantConnect LEAN that clusters stocks with the Mapper algorithm (topological data analysis) and holds the momentum leaders of each cluster, so the portfolio follows strong names without concentrating in one group of correlated stocks.
 
-**Status:** research code, backtested only. One cloud backtest is published (see [Results](#results)); it predates the latest execution fix, and the like-for-like comparison against the two baselines is pending.
+**Status:** research code, backtested only. One cloud backtest is published (see [Results](#results)); its long ratio still drifts above 1.0 for a cause not yet found, and the like-for-like comparison against the two baselines is pending.
 
 ## Why
 
@@ -111,11 +111,12 @@ One QuantConnect cloud backtest, 2015-01-01 to 2025-09-30, $1,000,000, daily dat
 | 9.35% | 0.40 | 0.50 | 21% | -0.30 | 4.6% | 13,747 |
 
 - The strategy does not beat SPY on a risk-adjusted basis (information ratio -0.30). The risk overlay keeps the book below full exposure for long stretches, which limits drawdowns and also costs return in strong markets.
-- This run predates commit `0c3e4af`, which fixed the execution model skipping small trims while buys went through; that bug let the long ratio drift above 1.0. The current code has not been re-backtested yet.
+- This run ("small-trade filter") includes commit `0c3e4af`, which stopped the execution model from skipping small trims while buys went through. The long ratio still reaches about 1.2 in it, so that fix was not the whole cause; finding the rest is open.
 
 ## Limitations and next steps
 
 - Re-run the current code and compare it like for like with both baselines (same period, cash and costs).
+- Find why the long ratio still drifts above 1.0 in the published run (about 1.2) and cap gross exposure.
 - Ablation: do Mapper clusters add value over plain correlation clusters with the same selection, sizing and costs?
 - Robustness: walk-forward and parameter-stability checks on `history_lookback`, `select_fraction` and `target_vol`.
 - Costs are a fee schedule plus constant slippage; there is no market-impact model.
